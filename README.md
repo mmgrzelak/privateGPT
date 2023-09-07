@@ -26,7 +26,7 @@ MODEL_TYPE: supports LlamaCpp or GPT4All
 PERSIST_DIRECTORY: is the folder you want your vectorstore in
 MODEL_PATH: Path to your GPT4All or LlamaCpp supported LLM
 MODEL_N_CTX: Maximum token limit for the LLM model
-MODEL_N_BATCH: Number of tokens in the prompt that are fed into the model at a time. Optimal value differs a lot depending on the model (8 works well for GPT4All, and 1024 is better for LlamaCpp). The lower this value, the less hardware resources will be required, but the query may be very slow; a high value, on the other hand, speeds things up at the cost of higher memory usage.
+N_BATCH: Number of tokens in the prompt that are fed into the model at a time. Optimal value differs a lot depending on the model (8 works well for GPT4All, and 1024 is better for LlamaCpp). The lower this value, the less hardware resources will be required, but the query may be very slow; a high value, on the other hand, speeds things up at the cost of higher memory usage.
 EMBEDDINGS_MODEL_NAME: SentenceTransformers embeddings model name (see https://www.sbert.net/docs/pretrained_models.html)
 TARGET_SOURCE_CHUNKS: The amount of chunks (sources) that will be used to answer a question
 N_GPU_LAYERS: parameter of LlamaCpp model, numer of layers that are loaded onto GPU. Setting high numbers (e.g. 20) may crash the application with an "out of memory" error, if you have a powerful GPU, set this value to 1000 to try to load the entire model on the GPU
