@@ -6,25 +6,15 @@ Built with [LangChain](https://github.com/hwchase17/langchain), [GPT4All](https:
 <img width="902" alt="demo" src="https://user-images.githubusercontent.com/721666/236942256-985801c9-25b9-48ef-80be-3acbb4575164.png">
 
 # Environment Setup
-In order to set your environment up to run the code here, first install all requirements:
 
-```shell
-pip3 install -r requirements.txt
-```
+## Model download
+Only LlamaCpp model type supports GPU usage. From the end of August only GGUF extension is supported by llama-cpp-python package. You can download models from the following links:
+* Llama2 7B: https://huggingface.co/TheBloke/Llama-2-7b-Chat-GGUF/resolve/main/llama-2-7b-chat.Q8_0.gguf
+* Llama2 13B: https://huggingface.co/TheBloke/Llama-2-13B-chat-GGUF/resolve/main/llama-2-13b-chat.Q8_0.gguf
 
-*Alternative requirements installation with poetry*
-1. Install [poetry](https://python-poetry.org/docs/#installation)
+If you prefer a different LlamaCpp compatible model, just download it and reference it in your `.env` file.
 
-2. Run this commands
-```shell
-cd privateGPT
-poetry install
-poetry shell
-```
-
-Then, download the LLM model and place it in a directory of your choice:
-- LLM: default to [ggml-gpt4all-j-v1.3-groovy.bin](https://gpt4all.io/models/ggml-gpt4all-j-v1.3-groovy.bin). If you prefer a different GPT4All-J compatible model, just download it and reference it in your `.env` file.
-
+## Environmental variables
 Copy the `example.env` template into `.env`
 ```shell
 cp example.env .env
@@ -36,15 +26,33 @@ MODEL_TYPE: supports LlamaCpp or GPT4All
 PERSIST_DIRECTORY: is the folder you want your vectorstore in
 MODEL_PATH: Path to your GPT4All or LlamaCpp supported LLM
 MODEL_N_CTX: Maximum token limit for the LLM model
-MODEL_N_BATCH: Number of tokens in the prompt that are fed into the model at a time. Optimal value differs a lot depending on the model (8 works well for GPT4All, and 1024 is better for LlamaCpp)
+MODEL_N_BATCH: Number of tokens in the prompt that are fed into the model at a time. Optimal value differs a lot depending on the model (8 works well for GPT4All, and 1024 is better for LlamaCpp). The lower this value, the less hardware resources will be required, but the query may be very slow; a high value, on the other hand, speeds things up at the cost of higher memory usage.
 EMBEDDINGS_MODEL_NAME: SentenceTransformers embeddings model name (see https://www.sbert.net/docs/pretrained_models.html)
 TARGET_SOURCE_CHUNKS: The amount of chunks (sources) that will be used to answer a question
+N_GPU_LAYERS: parameter of LlamaCpp model, numer of layers that are loaded onto GPU. Setting high numbers (e.g. 20) may crash the application with an "out of memory" error, if you have a powerful GPU, set this value to 1000 to try to load the entire model on the GPU
+USE_MLOCK: If this value is set to 1, the entire model will be loaded into RAM (avoid using the disk but use more RAM), if you have little RAM, set this value to 0
+IS_GPU_ENABLED Flag if use GPU or not
 ```
 
 Note: because of the way `langchain` loads the `SentenceTransformers` embeddings, the first time you run the script it will require internet connection to download the embeddings model itself.
 
-## Test dataset
-This repo uses a [state of the union transcript](https://github.com/imartinez/privateGPT/blob/main/source_documents/state_of_the_union.txt) as an example.
+## Using GPU acceleration
+
+You can use the included environment.sh file to install the required dependencies for GPU acceleration, or:
+
+1. For conda users:
+```   
+conda create -n gpt_gpu python=3.11
+conda activate gpt_gpu
+conda install -c "nvidia/label/cuda-11.6.0" cuda-toolkit  # version 11.6.0 because that's the cuda version on server, you can change on different machine
+export LLAMA_CUBLAS=1
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install --no-cache-dir llama-cpp-python
+pip install -r requirements.txt
+```
+If you're not using conda environments, you have to make analogical steps.
+
+2. Enable GPU acceleration in `.env` file by setting `IS_GPU_ENABLED` to `True`
+3. Run `ingest.py` and `privateGPT.py` as usual
 
 ## Instructions for ingesting your own dataset
 
