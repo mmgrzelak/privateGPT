@@ -9,6 +9,7 @@ import chromadb
 import os
 import argparse
 import time
+from torch import cuda as torch_cuda
 
 if not load_dotenv():
     print("Could not load .env file or it is empty. Please check if it exists and is readable.")
@@ -20,15 +21,39 @@ persist_directory = os.environ.get('PERSIST_DIRECTORY')
 model_type = os.environ.get('MODEL_TYPE')
 model_path = os.environ.get('MODEL_PATH')
 model_n_ctx = os.environ.get('MODEL_N_CTX')
-model_n_batch = int(os.environ.get('MODEL_N_BATCH',8))
 target_source_chunks = int(os.environ.get('TARGET_SOURCE_CHUNKS',4))
+n_gpu_layers = os.environ.get('N_GPU_LAYERS')
+use_mlock = os.environ.get('USE_MLOCK')
+n_batch = os.environ.get('N_BATCH') if os.environ.get('N_BATCH') else 512 # default value
+is_gpu_enabled = (os.environ.get('IS_GPU_ENABLED', 'False').lower() == 'true')
 
 from constants import CHROMA_SETTINGS
+
+# def get_gpu_memory() -> int:
+#     """
+#     Returns the amount of free memory in MB for each GPU.
+#     """
+#     return int(torch_cuda.mem_get_info()[0]/(1024**2))
+
+# def calculate_layer_count() -> int | None:
+#     """
+#     Calculates the number of layers that can be used on the GPU.
+#     """
+#     if not is_gpu_enabled:
+#         return None
+#     LAYER_SIZE_MB = 120.6 # This is the size of a single layer on VRAM, and is an approximation.
+#     # The current set value is for 7B models. For other models, this value should be changed.
+#     LAYERS_TO_REDUCE = 6 # About 700 MB is needed for the LLM to run, so we reduce the layer count by 6 to be safe.
+#     if (get_gpu_memory()//LAYER_SIZE_MB) - LAYERS_TO_REDUCE > 32:
+#         return 32
+#     else:
+#         return (get_gpu_memory()//LAYER_SIZE_MB-LAYERS_TO_REDUCE)
 
 def main():
     # Parse the command line arguments
     args = parse_arguments()
-    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+    embeddings_kwargs = {'device': 'cuda'} if is_gpu_enabled else {}
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name, model_kwargs=embeddings_kwargs)
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=persist_directory)
     db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, client_settings=CHROMA_SETTINGS, client=chroma_client)
     retriever = db.as_retriever(search_kwargs={"k": target_source_chunks})
@@ -37,32 +62,32 @@ def main():
     # Prepare the LLM
     match model_type:
         case "LlamaCpp":
-            llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+            # calculate_layer_count()
+            llm = LlamaCpp(model_path=model_path, n_ctx=model_n_ctx, callbacks=callbacks, verbose=True, n_gpu_layers=n_gpu_layers, use_mlock=use_mlock, top_p=0.9, n_batch=n_batch)
         case "GPT4All":
-            llm = GPT4All(model=model_path, max_tokens=model_n_ctx, backend='gptj', n_batch=model_n_batch, callbacks=callbacks, verbose=False)
+            if is_gpu_enabled:
+                print("GPU is enabled, but GPT4All does not support GPU acceleration. Please use LlamaCpp instead.")
+                exit(1)
+            llm = GPT4All(model=model_path, n_ctx=model_n_ctx, backend='gptj', callbacks=callbacks, verbose=False)
         case _default:
             # raise exception if model_type is not supported
             raise Exception(f"Model type {model_type} is not supported. Please choose one of the following: LlamaCpp, GPT4All")
-
+    
     qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents= not args.hide_source)
     # Interactive questions and answers
     while True:
         query = input("\nEnter a query: ")
         if query == "exit":
             break
-        if query.strip() == "":
-            continue
 
         # Get the answer from the chain
-        start = time.time()
         res = qa(query)
         answer, docs = res['result'], [] if args.hide_source else res['source_documents']
-        end = time.time()
 
         # Print the result
         print("\n\n> Question:")
         print(query)
-        print(f"\n> Answer (took {round(end - start, 2)} s.):")
+        print("\n> Answer:")
         print(answer)
 
         # Print the relevant sources used for the answer
