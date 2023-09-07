@@ -51,7 +51,7 @@ pip install -r requirements.txt
 ```
 If you're not using conda environments, you have to make analogical steps.
 
-2. Enable GPU acceleration in `.env` file by setting `IS_GPU_ENABLED` to `True`
+2. Enable GPU acceleration in `.env` file by setting `IS_GPU_ENABLED` to `True` and define number of layers calculated on GPU by setting `N_GPU_LAYERS`
 3. Run `ingest.py` and `privateGPT.py` as usual
 
 ## Instructions for ingesting your own dataset
