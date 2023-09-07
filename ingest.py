@@ -36,6 +36,7 @@ import chromadb
 persist_directory = os.environ.get('PERSIST_DIRECTORY')
 source_directory = os.environ.get('SOURCE_DIRECTORY', 'source_documents')
 embeddings_model_name = os.environ.get('EMBEDDINGS_MODEL_NAME')
+is_gpu_enabled = (os.environ.get('IS_GPU_ENABLED', 'False').lower() == 'true')
 chunk_size = 500
 chunk_overlap = 50
 
@@ -65,7 +66,7 @@ class MyElmLoader(UnstructuredEmailLoader):
 
 # Map file extensions to document loaders and their arguments
 LOADER_MAPPING = {
-    ".csv": (CSVLoader, {}),
+    ".csv": (CSVLoader, {'csv_args': {'delimiter': ';'}}),
     # ".docx": (Docx2txtLoader, {}),
     ".doc": (UnstructuredWordDocumentLoader, {}),
     ".docx": (UnstructuredWordDocumentLoader, {}),
@@ -141,7 +142,8 @@ def does_vectorstore_exist(persist_directory: str, embeddings: HuggingFaceEmbedd
 
 def main():
     # Create embeddings
-    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name)
+    embeddings_kwargs = {'device': 'cuda'} if is_gpu_enabled else {}
+    embeddings = HuggingFaceEmbeddings(model_name=embeddings_model_name, model_kwargs=embeddings_kwargs)
     # Chroma client
     chroma_client = chromadb.PersistentClient(settings=CHROMA_SETTINGS , path=persist_directory)
 
@@ -167,3 +169,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
